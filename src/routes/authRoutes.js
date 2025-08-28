@@ -1,12 +1,22 @@
 const express = require('express');
-const { register, login } = require('../controllers/authController');
+const { 
+  register, 
+  login, 
+  logout, 
+  getProfile, 
+  updateProfile 
+} = require('../controllers/authController');
+const { authenticateToken } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
-// POST /api/auth/register
+// Rutas públicas
 router.post('/register', register);
-
-// POST /api/auth/login  
 router.post('/login', login);
+
+// Rutas protegidas (requieren autenticación)
+router.post('/logout', authenticateToken, logout);
+router.get('/profile', authenticateToken, getProfile);
+router.put('/profile', authenticateToken, updateProfile);
 
 module.exports = router;

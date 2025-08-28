@@ -5,6 +5,7 @@ const db = require('./src/database/db');
 
 // Importar rutas
 const authRoutes = require('./src/routes/authRoutes');
+const taskRoutes = require('./src/routes/taskRoutes'); // ← Agregar esta línea
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -15,6 +16,7 @@ app.use(express.json());
 
 // Rutas
 app.use('/api/auth', authRoutes);
+app.use('/api/tasks', taskRoutes); // ← Agregar esta línea
 
 // Ruta de prueba
 app.get('/api/test', (req, res) => {
