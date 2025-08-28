@@ -38,11 +38,42 @@ const createTask = async (req, res) => {
   }
 };
 
+// Obtener tarea específica
+const getTask = async (req, res) => {
+  try {
+    const taskId = req.params.id;
+    const task = await Task.findById(taskId);
+
+    if (!task) {
+      return res.status(404).json({ error: 'Tarea no encontrada' });
+    }
+
+    // Verificar que la tarea pertenece al usuario
+    if (task.user_id !== req.user.userId) {
+      return res.status(403).json({ error: 'No tienes permiso para acceder a esta tarea' });
+    }
+
+    res.json(task);
+  } catch (error) {
+    console.error('Error obteniendo tarea:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
 // Actualizar tarea
 const updateTask = async (req, res) => {
   try {
     const taskId = req.params.id;
     const updates = req.body;
+
+    // Verificar que la tarea existe y pertenece al usuario
+    const existingTask = await Task.findById(taskId);
+    if (!existingTask) {
+      return res.status(404).json({ error: 'Tarea no encontrada' });
+    }
+    if (existingTask.user_id !== req.user.userId) {
+      return res.status(403).json({ error: 'No tienes permiso para editar esta tarea' });
+    }
 
     await Task.update(taskId, updates);
     const updatedTask = await Task.findById(taskId);
@@ -58,6 +89,16 @@ const updateTask = async (req, res) => {
 const deleteTask = async (req, res) => {
   try {
     const taskId = req.params.id;
+
+    // Verificar que la tarea existe y pertenece al usuario
+    const existingTask = await Task.findById(taskId);
+    if (!existingTask) {
+      return res.status(404).json({ error: 'Tarea no encontrada' });
+    }
+    if (existingTask.user_id !== req.user.userId) {
+      return res.status(403).json({ error: 'No tienes permiso para eliminar esta tarea' });
+    }
+
     await Task.delete(taskId);
     res.json({ message: 'Tarea eliminada exitosamente' });
   } catch (error) {
@@ -70,6 +111,16 @@ const deleteTask = async (req, res) => {
 const toggleTask = async (req, res) => {
   try {
     const taskId = req.params.id;
+
+    // Verificar que la tarea existe y pertenece al usuario
+    const existingTask = await Task.findById(taskId);
+    if (!existingTask) {
+      return res.status(404).json({ error: 'Tarea no encontrada' });
+    }
+    if (existingTask.user_id !== req.user.userId) {
+      return res.status(403).json({ error: 'No tienes permiso para editar esta tarea' });
+    }
+
     await Task.toggleComplete(taskId);
     const updatedTask = await Task.findById(taskId);
     res.json(updatedTask);
@@ -79,10 +130,23 @@ const toggleTask = async (req, res) => {
   }
 };
 
+// Obtener estadísticas de tareas
+const getStats = async (req, res) => {
+  try {
+    const stats = await Task.getStats(req.user.userId);
+    res.json(stats);
+  } catch (error) {
+    console.error('Error obteniendo estadísticas:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
 module.exports = {
   getTasks,
   createTask,
+  getTask,
   updateTask,
   deleteTask,
-  toggleTask
+  toggleTask,
+  getStats
 };

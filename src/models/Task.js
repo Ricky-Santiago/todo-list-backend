@@ -22,7 +22,17 @@ class Task {
 
   // Obtener todas las tareas de un usuario
   static async findByUserId(userId) {
-    const query = 'SELECT * FROM tasks WHERE user_id = ? ORDER BY created_at DESC';
+    const query = `
+      SELECT * FROM tasks 
+      WHERE user_id = ? 
+      ORDER BY 
+        CASE priority 
+          WHEN 'high' THEN 1 
+          WHEN 'medium' THEN 2 
+          WHEN 'low' THEN 3 
+        END,
+        created_at DESC
+    `;
     
     return new Promise((resolve, reject) => {
       db.execute(query, [userId], (error, results) => {
@@ -84,6 +94,25 @@ class Task {
       db.execute(query, [taskId], (error, results) => {
         if (error) reject(error);
         resolve(results);
+      });
+    });
+  }
+
+  // Obtener estadísticas de tareas
+  static async getStats(userId) {
+    const query = `
+      SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN is_completed = TRUE THEN 1 ELSE 0 END) as completed,
+        SUM(CASE WHEN is_completed = FALSE THEN 1 ELSE 0 END) as pending
+      FROM tasks 
+      WHERE user_id = ?
+    `;
+    
+    return new Promise((resolve, reject) => {
+      db.execute(query, [userId], (error, results) => {
+        if (error) reject(error);
+        resolve(results[0]);
       });
     });
   }
