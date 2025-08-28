@@ -11,6 +11,24 @@ const getTasks = async (req, res) => {
   }
 };
 
+// Obtener tareas con filtros
+const getTasksWithFilters = async (req, res) => {
+  try {
+    const filters = {
+      status: req.query.status,
+      priority: req.query.priority,
+      due_date: req.query.due_date,
+      search: req.query.search
+    };
+
+    const tasks = await Task.findWithFilters(req.user.userId, filters);
+    res.json(tasks);
+  } catch (error) {
+    console.error('Error obteniendo tareas con filtros:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
 // Crear nueva tarea
 const createTask = async (req, res) => {
   try {
@@ -143,6 +161,7 @@ const getStats = async (req, res) => {
 
 module.exports = {
   getTasks,
+  getTasksWithFilters, // ← FUNCIÓN NUEVA AGREGADA
   createTask,
   getTask,
   updateTask,

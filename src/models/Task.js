@@ -42,6 +42,49 @@ class Task {
     });
   }
 
+  // Obtener tareas con filtros
+  static async findWithFilters(userId, filters = {}) {
+    let query = 'SELECT * FROM tasks WHERE user_id = ?';
+    const params = [userId];
+
+    // Filtro por estado (completed/pending)
+    if (filters.status) {
+      if (filters.status === 'completed') {
+        query += ' AND is_completed = TRUE';
+      } else if (filters.status === 'pending') {
+        query += ' AND is_completed = FALSE';
+      }
+    }
+
+    // Filtro por prioridad
+    if (filters.priority) {
+      query += ' AND priority = ?';
+      params.push(filters.priority);
+    }
+
+    // Filtro por fecha límite
+    if (filters.due_date) {
+      query += ' AND due_date = ?';
+      params.push(filters.due_date);
+    }
+
+    // Búsqueda por título
+    if (filters.search) {
+      query += ' AND title LIKE ?';
+      params.push(`%${filters.search}%`);
+    }
+
+    // Ordenamiento
+    query += ' ORDER BY created_at DESC';
+
+    return new Promise((resolve, reject) => {
+      db.execute(query, params, (error, results) => {
+        if (error) reject(error);
+        resolve(results);
+      });
+    });
+  }
+
   // Obtener tarea por ID
   static async findById(taskId) {
     const query = 'SELECT * FROM tasks WHERE id = ?';
