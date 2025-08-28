@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
+const db = require('./src/database/db'); // ← Agrega esta línea
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -12,6 +13,16 @@ app.use(express.json());
 // Ruta de prueba
 app.get('/api/test', (req, res) => {
   res.json({ message: '¡Backend funcionando correctamente! 🚀' });
+});
+
+// Ruta para probar la base de datos
+app.get('/api/test-db', (req, res) => {
+  db.query('SELECT 1 + 1 AS solution', (error, results) => {
+    if (error) {
+      return res.status(500).json({ error: 'Error de base de datos' });
+    }
+    res.json({ message: '✅ Conexión a MySQL exitosa', result: results[0].solution });
+  });
 });
 
 // Iniciar servidor
