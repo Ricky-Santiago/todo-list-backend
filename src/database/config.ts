@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Configuración de la conexión a MySQL
+
 const dbConfig = {
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT || '3306'),
@@ -15,10 +15,10 @@ const dbConfig = {
   queueLimit: 0
 };
 
-// Crear pool de conexiones
+
 const pool = mysql.createPool(dbConfig);
 
-// Probar la conexión a la base de datos
+
 export const testConnection = async (): Promise<void> => {
   try {
     const connection = await pool.getConnection();
@@ -30,7 +30,7 @@ export const testConnection = async (): Promise<void> => {
   }
 };
 
-// Función para ejecutar queries
+
 export const query = async (sql: string, params?: any[]): Promise<any> => {
   try {
     const [results] = await pool.execute(sql, params);
