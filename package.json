@@ -4,8 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node dist/server.js",
-    "dev": "nodemon src/server.ts",
+    "start": "node -r reflect-metadata dist/server.js",
+    "dev": "nodemon -r reflect-metadata src/server.ts",
     "build": "tsc"
   },
   "keywords": [],
@@ -18,14 +18,16 @@
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
-    "mysql2": "^3.14.4"
+    "mysql2": "^3.14.4",
+    "reflect-metadata": "^0.1.14",
+    "typeorm": "^0.3.26"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
     "@types/jsonwebtoken": "^9.0.10",
-    "@types/node": "^24.3.0",
+    "@types/node": "^24.3.1",
     "nodemon": "^3.1.10",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.2"
