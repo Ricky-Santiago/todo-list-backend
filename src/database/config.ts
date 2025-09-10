@@ -1,44 +1,31 @@
-import mysql from 'mysql2/promise';
+import { DataSource } from 'typeorm';
 import dotenv from 'dotenv';
+import { User } from '../models/User';
+import { Task } from '../models/Task';
 
 dotenv.config();
 
-
-const dbConfig = {
+export const AppDataSource = new DataSource({
+  type: 'mysql',
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT || '3306'),
-  user: process.env.DB_USER || 'root',
+  username: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || 'todolist',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
-};
-
-
-const pool = mysql.createPool(dbConfig);
+  synchronize: false, 
+  logging: true,
+  entities: [User, Task],
+  migrations: [],
+  subscribers: [],
+});
 
 
 export const testConnection = async (): Promise<void> => {
   try {
-    const connection = await pool.getConnection();
-    console.log('✅ Conexión a MySQL establecida correctamente');
-    connection.release();
+    await AppDataSource.initialize();
+    console.log('✅ TypeORM conectado a MySQL correctamente');
   } catch (error) {
-    console.error('❌ Error conectando a MySQL:', error);
+    console.error('❌ Error conectando TypeORM a MySQL:', error);
     throw error;
   }
 };
-
-
-export const query = async (sql: string, params?: any[]): Promise<any> => {
-  try {
-    const [results] = await pool.execute(sql, params);
-    return results;
-  } catch (error) {
-    console.error('❌ Error ejecutando query:', error);
-    throw error;
-  }
-};
-
-export default pool;
