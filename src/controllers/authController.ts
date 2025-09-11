@@ -1,23 +1,51 @@
 import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt, { Secret } from "jsonwebtoken";
+import { z } from "zod";
 import { AppDataSource } from "../database/config";
 import { User } from "../models/User";
 import { RegisterRequest, LoginRequest } from "../types";
 
 
+const RegisterSchema = z.object({
+  email: z.string().email("Email inválido"),
+  password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
+  first_name: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
+  last_name: z.string().min(2, "El apellido debe tener al menos 2 caracteres")
+});
+
+
+const LoginSchema = z.object({
+  email: z.string().email("Email inválido"),
+  password: z.string().min(1, "La contraseña es requerida")
+});
+
+
+const UpdateProfileSchema = z.object({
+  first_name: z.string().min(2, "El nombre debe tener al menos 2 caracteres").optional(),
+  last_name: z.string().min(2, "El apellido debe tener al menos 2 caracteres").optional()
+});
+
+
+
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email, password, first_name, last_name }: RegisterRequest =
-      req.body;
-
-    if (!email || !password || !first_name || !last_name) {
-      res.status(400).json({ message: "Todos los campos son requeridos" });
+    
+    const validationResult = RegisterSchema.safeParse(req.body);
+    
+    if (!validationResult.success) {
+      const errorMessages = validationResult.error.issues.map(err => err.message);
+      res.status(400).json({ 
+        message: "Datos de entrada inválidos",
+        errors: errorMessages 
+      });
       return;
     }
 
-    const userRepository = AppDataSource.getRepository(User);
+    const { email, password, first_name, last_name } = validationResult.data;
 
+    const userRepository = AppDataSource.getRepository(User);
+    
     
     const existingUser = await userRepository.findOne({ where: { email } });
     if (existingUser) {
@@ -85,16 +113,23 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email, password }: LoginRequest = req.body;
-
-    if (!email || !password) {
-      res.status(400).json({ message: "Email y contraseña son requeridos" });
+    // Validación con Zod
+    const validationResult = LoginSchema.safeParse(req.body);
+    
+    if (!validationResult.success) {
+      const errorMessages = validationResult.error.issues.map(err => err.message);
+      res.status(400).json({ 
+        message: "Datos de entrada inválidos",
+        errors: errorMessages 
+      });
       return;
     }
 
+    const { email, password } = validationResult.data;
+
     const userRepository = AppDataSource.getRepository(User);
 
-    
+    // Buscar usuario con TypeORM
     const user = await userRepository.findOne({
       where: { email },
       select: ["id", "email", "password_hash", "first_name", "last_name"],
@@ -105,14 +140,14 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    
+    // Verificar contraseña
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
     if (!isValidPassword) {
       res.status(401).json({ message: "Credenciales inválidas" });
       return;
     }
 
-   
+    // Generar JWT
     const jwtSecret = process.env.JWT_SECRET;
     const jwtExpiresIn = process.env.JWT_EXPIRES_IN;
 
@@ -139,7 +174,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       { expiresIn: jwtExpiresIn } as jwt.SignOptions
     );
 
-    
+    // Excluir password_hash de la respuesta
     const { password_hash: _, ...userWithoutPassword } = user;
 
     res.json({
@@ -188,7 +223,19 @@ export const updateProfile = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { first_name, last_name } = req.body;
+    // Validación con Zod
+    const validationResult = UpdateProfileSchema.safeParse(req.body);
+    
+    if (!validationResult.success) {
+      const errorMessages = validationResult.error.issues.map(err => err.message);
+      res.status(400).json({ 
+        message: "Datos de entrada inválidos",
+        errors: errorMessages 
+      });
+      return;
+    }
+
+    const { first_name, last_name } = validationResult.data;
     const userId = (req as any).user.userId;
 
     const userRepository = AppDataSource.getRepository(User);
