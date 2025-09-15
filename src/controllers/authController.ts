@@ -113,7 +113,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
-    // Validación con Zod
+    
     const validationResult = LoginSchema.safeParse(req.body);
     
     if (!validationResult.success) {
@@ -129,7 +129,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
     const userRepository = AppDataSource.getRepository(User);
 
-    // Buscar usuario con TypeORM
+    
     const user = await userRepository.findOne({
       where: { email },
       select: ["id", "email", "password_hash", "first_name", "last_name"],
@@ -140,14 +140,14 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Verificar contraseña
+    
     const isValidPassword = await bcrypt.compare(password, user.password_hash);
     if (!isValidPassword) {
       res.status(401).json({ message: "Credenciales inválidas" });
       return;
     }
 
-    // Generar JWT
+    
     const jwtSecret = process.env.JWT_SECRET;
     const jwtExpiresIn = process.env.JWT_EXPIRES_IN;
 
@@ -174,7 +174,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       { expiresIn: jwtExpiresIn } as jwt.SignOptions
     );
 
-    // Excluir password_hash de la respuesta
+    
     const { password_hash: _, ...userWithoutPassword } = user;
 
     res.json({
@@ -223,7 +223,7 @@ export const updateProfile = async (
   res: Response
 ): Promise<void> => {
   try {
-    // Validación con Zod
+   
     const validationResult = UpdateProfileSchema.safeParse(req.body);
     
     if (!validationResult.success) {
