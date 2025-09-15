@@ -67,3 +67,27 @@ export const createTask = async (req: Request, res: Response): Promise<void> => 
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 };
+
+
+export const getTask = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const userId = (req as any).user.userId;
+
+    const taskRepository = AppDataSource.getRepository(Task);
+    
+    const task = await taskRepository.findOne({
+      where: { id, user_id: userId }
+    });
+
+    if (!task) {
+      res.status(404).json({ message: "Tarea no encontrada" });
+      return;
+    }
+
+    res.json(task);
+  } catch (error) {
+    console.error('Error obteniendo tarea:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
