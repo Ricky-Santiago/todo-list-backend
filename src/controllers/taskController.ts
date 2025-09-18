@@ -287,3 +287,54 @@ export const toggleTask = async (req: Request, res: Response): Promise<void> => 
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 };
+
+export const getTasksStats = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = (req as any).user.userId;
+    
+    const taskRepository = AppDataSource.getRepository(Task);
+
+    const tasks = await taskRepository.find({
+      where: { user_id: userId }
+    });
+
+    const total = tasks.length;
+    const completed = tasks.filter(task => task.is_completed).length;
+    const pending = total - completed;
+
+    const highPriority = tasks.filter(task => task.priority === 'high').length;
+    const mediumPriority = tasks.filter(task => task.priority === 'medium').length;
+    const lowPriority = tasks.filter(task => task.priority === 'low').length;
+
+    const today = new Date();
+    const nextWeek = new Date();
+    nextWeek.setDate(today.getDate() + 7);
+    
+    const upcomingTasks = tasks.filter(task => {
+      if (!task.due_date) return false;
+      const dueDate = new Date(task.due_date);
+      return dueDate >= today && dueDate <= nextWeek && !task.is_completed;
+    }).length;
+
+    const overdueTasks = tasks.filter(task => {
+      if (!task.due_date || task.is_completed) return false;
+      const dueDate = new Date(task.due_date);
+      return dueDate < today;
+    }).length;
+
+    res.json({
+      total,
+      completed,
+      pending,
+      high_priority: highPriority,
+      medium_priority: mediumPriority,
+      low_priority: lowPriority,
+      upcoming_tasks: upcomingTasks,
+      overdue_tasks: overdueTasks,
+      completion_rate: total > 0 ? Math.round((completed / total) * 100) : 0
+    });
+  } catch (error) {
+    console.error('Error obteniendo estadísticas:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
