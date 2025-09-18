@@ -12,15 +12,61 @@ const CreateTaskSchema = z.object({
 });
 
 
+const UpdateTaskSchema = z.object({
+  title: z.string().min(1, "El título es requerido"),
+  description: z.string().optional(),
+  due_date: z.string().optional().transform(val => val ? new Date(val) : undefined),
+  priority: z.enum(['low', 'medium', 'high']),
+  is_completed: z.boolean()
+});
+
+ 
+const PartialUpdateTaskSchema = z.object({
+  title: z.string().min(1, "El título es requerido").optional(),
+  description: z.string().optional(),
+  due_date: z.string().optional().transform(val => val ? new Date(val) : undefined),
+  priority: z.enum(['low', 'medium', 'high']).optional(),
+  is_completed: z.boolean().optional()
+});
+
 export const getTasks = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as any).user.userId;
+    const { status, search, priority, due_date } = req.query;
+    
     const taskRepository = AppDataSource.getRepository(Task);
     
-    const tasks = await taskRepository.find({
-      where: { user_id: userId },
-      order: { created_at: 'DESC' }
-    });
+    let query = taskRepository
+      .createQueryBuilder('task')
+      .where('task.user_id = :userId', { userId });
+
+    if (status === 'completed') {
+      query = query.andWhere('task.is_completed = :isCompleted', { isCompleted: true });
+    } else if (status === 'pending') {
+      query = query.andWhere('task.is_completed = :isCompleted', { isCompleted: false });
+    }
+
+    if (search && typeof search === 'string') {
+      query = query.andWhere(
+        '(task.title LIKE :search OR task.description LIKE :search)',
+        { search: `%${search}%` }
+      );
+    }
+
+    if (priority && typeof priority === 'string' && ['low', 'medium', 'high'].includes(priority)) {
+      query = query.andWhere('task.priority = :priority', { priority });
+    }
+
+    if (due_date && typeof due_date === 'string') {
+      const dueDate = new Date(due_date);
+      if (!isNaN(dueDate.getTime())) {
+        query = query.andWhere('DATE(task.due_date) = DATE(:dueDate)', { dueDate });
+      }
+    }
+
+    query = query.orderBy('task.created_at', 'DESC');
+
+    const tasks = await query.getMany();
 
     res.json(tasks);
   } catch (error) {
@@ -88,6 +134,207 @@ export const getTask = async (req: Request, res: Response): Promise<void> => {
     res.json(task);
   } catch (error) {
     console.error('Error obteniendo tarea:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
+
+
+export const updateTask = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const validationResult = UpdateTaskSchema.safeParse(req.body);
+    
+    if (!validationResult.success) {
+      const errorMessages = validationResult.error.issues.map(err => err.message);
+      res.status(400).json({ 
+        message: "Datos de entrada inválidos",
+        errors: errorMessages 
+      });
+      return;
+    }
+
+    const { id } = req.params;
+    const userId = (req as any).user.userId;
+    const updateData = validationResult.data;
+
+    const taskRepository = AppDataSource.getRepository(Task);
+    
+    const existingTask = await taskRepository.findOne({
+      where: { id, user_id: userId }
+    });
+
+    if (!existingTask) {
+      res.status(404).json({ message: "Tarea no encontrada" });
+      return;
+    }
+
+    await taskRepository.update(id, {
+      ...updateData,
+      updated_at: new Date()
+    });
+
+    const updatedTask = await taskRepository.findOneBy({ id });
+
+    res.json({
+      message: "Tarea actualizada exitosamente",
+      task: updatedTask
+    });
+  } catch (error) {
+    console.error('Error actualizando tarea:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
+
+
+export const partialUpdateTask = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const validationResult = PartialUpdateTaskSchema.safeParse(req.body);
+    
+    if (!validationResult.success) {
+      const errorMessages = validationResult.error.issues.map(err => err.message);
+      res.status(400).json({ 
+        message: "Datos de entrada inválidos",
+        errors: errorMessages 
+      });
+      return;
+    }
+
+    const { id } = req.params;
+    const userId = (req as any).user.userId;
+    const updateData = validationResult.data;
+
+    const taskRepository = AppDataSource.getRepository(Task);
+    
+    const existingTask = await taskRepository.findOne({
+      where: { id, user_id: userId }
+    });
+
+    if (!existingTask) {
+      res.status(404).json({ message: "Tarea no encontrada" });
+      return;
+    }
+
+    await taskRepository.update(id, {
+      ...updateData,
+      updated_at: new Date()
+    });
+
+    const updatedTask = await taskRepository.findOneBy({ id });
+
+    res.json({
+      message: "Tarea actualizada exitosamente",
+      task: updatedTask
+    });
+  } catch (error) {
+    console.error('Error actualizando tarea:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
+
+export const deleteTask = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const userId = (req as any).user.userId;
+
+    const taskRepository = AppDataSource.getRepository(Task);
+    
+    const task = await taskRepository.findOne({
+      where: { id, user_id: userId }
+    });
+
+    if (!task) {
+      res.status(404).json({ message: "Tarea no encontrada" });
+      return;
+    }
+
+    await taskRepository.delete(id);
+
+    res.json({ message: "Tarea eliminada exitosamente" });
+  } catch (error) {
+    console.error('Error eliminando tarea:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
+
+export const toggleTask = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const userId = (req as any).user.userId;
+
+    const taskRepository = AppDataSource.getRepository(Task);
+    
+    const task = await taskRepository.findOne({
+      where: { id, user_id: userId }
+    });
+
+    if (!task) {
+      res.status(404).json({ message: "Tarea no encontrada" });
+      return;
+    }
+
+    await taskRepository.update(id, {
+      is_completed: !task.is_completed,
+      updated_at: new Date()
+    });
+
+    const updatedTask = await taskRepository.findOneBy({ id });
+
+    res.json({
+      message: `Tarea ${updatedTask?.is_completed ? 'completada' : 'pendiente'}`,
+      task: updatedTask
+    });
+  } catch (error) {
+    console.error('Error cambiando estado de tarea:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
+
+export const getTasksStats = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const userId = (req as any).user.userId;
+    
+    const taskRepository = AppDataSource.getRepository(Task);
+
+    const tasks = await taskRepository.find({
+      where: { user_id: userId }
+    });
+
+    const total = tasks.length;
+    const completed = tasks.filter(task => task.is_completed).length;
+    const pending = total - completed;
+
+    const highPriority = tasks.filter(task => task.priority === 'high').length;
+    const mediumPriority = tasks.filter(task => task.priority === 'medium').length;
+    const lowPriority = tasks.filter(task => task.priority === 'low').length;
+
+    const today = new Date();
+    const nextWeek = new Date();
+    nextWeek.setDate(today.getDate() + 7);
+    
+    const upcomingTasks = tasks.filter(task => {
+      if (!task.due_date) return false;
+      const dueDate = new Date(task.due_date);
+      return dueDate >= today && dueDate <= nextWeek && !task.is_completed;
+    }).length;
+
+    const overdueTasks = tasks.filter(task => {
+      if (!task.due_date || task.is_completed) return false;
+      const dueDate = new Date(task.due_date);
+      return dueDate < today;
+    }).length;
+
+    res.json({
+      total,
+      completed,
+      pending,
+      high_priority: highPriority,
+      medium_priority: mediumPriority,
+      low_priority: lowPriority,
+      upcoming_tasks: upcomingTasks,
+      overdue_tasks: overdueTasks,
+      completion_rate: total > 0 ? Math.round((completed / total) * 100) : 0
+    });
+  } catch (error) {
+    console.error('Error obteniendo estadísticas:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 };
