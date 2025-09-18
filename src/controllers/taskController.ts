@@ -11,7 +11,7 @@ const CreateTaskSchema = z.object({
   priority: z.enum(['low', 'medium', 'high']).default('medium')
 });
 
-// Esquema para actualización completa
+
 const UpdateTaskSchema = z.object({
   title: z.string().min(1, "El título es requerido"),
   description: z.string().optional(),
@@ -20,7 +20,7 @@ const UpdateTaskSchema = z.object({
   is_completed: z.boolean()
 });
 
-// Esquema para actualización parcial  
+ 
 const PartialUpdateTaskSchema = z.object({
   title: z.string().min(1, "El título es requerido").optional(),
   description: z.string().optional(),
@@ -32,12 +32,41 @@ const PartialUpdateTaskSchema = z.object({
 export const getTasks = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = (req as any).user.userId;
+    const { status, search, priority, due_date } = req.query;
+    
     const taskRepository = AppDataSource.getRepository(Task);
     
-    const tasks = await taskRepository.find({
-      where: { user_id: userId },
-      order: { created_at: 'DESC' }
-    });
+    let query = taskRepository
+      .createQueryBuilder('task')
+      .where('task.user_id = :userId', { userId });
+
+    if (status === 'completed') {
+      query = query.andWhere('task.is_completed = :isCompleted', { isCompleted: true });
+    } else if (status === 'pending') {
+      query = query.andWhere('task.is_completed = :isCompleted', { isCompleted: false });
+    }
+
+    if (search && typeof search === 'string') {
+      query = query.andWhere(
+        '(task.title LIKE :search OR task.description LIKE :search)',
+        { search: `%${search}%` }
+      );
+    }
+
+    if (priority && typeof priority === 'string' && ['low', 'medium', 'high'].includes(priority)) {
+      query = query.andWhere('task.priority = :priority', { priority });
+    }
+
+    if (due_date && typeof due_date === 'string') {
+      const dueDate = new Date(due_date);
+      if (!isNaN(dueDate.getTime())) {
+        query = query.andWhere('DATE(task.due_date) = DATE(:dueDate)', { dueDate });
+      }
+    }
+
+    query = query.orderBy('task.created_at', 'DESC');
+
+    const tasks = await query.getMany();
 
     res.json(tasks);
   } catch (error) {
@@ -109,7 +138,7 @@ export const getTask = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-// Actualizar tarea completa (PUT)
+
 export const updateTask = async (req: Request, res: Response): Promise<void> => {
   try {
     const validationResult = UpdateTaskSchema.safeParse(req.body);
@@ -129,7 +158,6 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
 
     const taskRepository = AppDataSource.getRepository(Task);
     
-    // Verificar que la tarea existe y pertenece al usuario
     const existingTask = await taskRepository.findOne({
       where: { id, user_id: userId }
     });
@@ -139,7 +167,6 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    // Actualizar la tarea
     await taskRepository.update(id, {
       ...updateData,
       updated_at: new Date()
@@ -158,7 +185,6 @@ export const updateTask = async (req: Request, res: Response): Promise<void> => 
 };
 
 
-// Actualización parcial (PATCH)
 export const partialUpdateTask = async (req: Request, res: Response): Promise<void> => {
   try {
     const validationResult = PartialUpdateTaskSchema.safeParse(req.body);
@@ -178,7 +204,6 @@ export const partialUpdateTask = async (req: Request, res: Response): Promise<vo
 
     const taskRepository = AppDataSource.getRepository(Task);
     
-    // Verificar que la tarea existe y pertenece al usuario
     const existingTask = await taskRepository.findOne({
       where: { id, user_id: userId }
     });
@@ -188,7 +213,6 @@ export const partialUpdateTask = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    // Actualizar solo los campos proporcionados
     await taskRepository.update(id, {
       ...updateData,
       updated_at: new Date()
@@ -206,7 +230,6 @@ export const partialUpdateTask = async (req: Request, res: Response): Promise<vo
   }
 };
 
-// Eliminar tarea (DELETE)
 export const deleteTask = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
@@ -214,7 +237,6 @@ export const deleteTask = async (req: Request, res: Response): Promise<void> => 
 
     const taskRepository = AppDataSource.getRepository(Task);
     
-    // Verificar que la tarea existe y pertenece al usuario
     const task = await taskRepository.findOne({
       where: { id, user_id: userId }
     });
@@ -233,7 +255,6 @@ export const deleteTask = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
-// Cambiar estado de completado (TOGGLE)
 export const toggleTask = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
@@ -241,7 +262,6 @@ export const toggleTask = async (req: Request, res: Response): Promise<void> => 
 
     const taskRepository = AppDataSource.getRepository(Task);
     
-    // Verificar que la tarea existe y pertenece al usuario
     const task = await taskRepository.findOne({
       where: { id, user_id: userId }
     });
@@ -251,7 +271,6 @@ export const toggleTask = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    // Cambiar el estado
     await taskRepository.update(id, {
       is_completed: !task.is_completed,
       updated_at: new Date()
